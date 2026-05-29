@@ -419,6 +419,7 @@ class FotoRegisto(Sincronizavel):
     imagem = models.ImageField(upload_to='registos/%Y/%m/')
     legenda = models.CharField(max_length=160, blank=True)
     criado_em = models.DateTimeField(auto_now_add=True)
+    ficheiro_enviado = models.BooleanField('ficheiro enviado p/ cloud', default=False, editable=False)
 
     class Meta:
         verbose_name = 'foto de registo'
@@ -784,6 +785,7 @@ class FotoOrdem(Sincronizavel):
     legenda = models.CharField(max_length=200, blank=True)
     funcionario = models.ForeignKey(Funcionario, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
     criado_em = models.DateTimeField(auto_now_add=True)
+    ficheiro_enviado = models.BooleanField('ficheiro enviado p/ cloud', default=False, editable=False)
 
     class Meta:
         verbose_name = 'foto da ordem'
