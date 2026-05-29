@@ -231,6 +231,24 @@ STORAGES = {
     'staticfiles': {'BACKEND': 'whitenoise.storage.CompressedStaticFilesStorage'},
 }
 
+# Fotos (media) em produção: object storage S3-compatível (Cloudflare R2 / AWS S3).
+# Ativa-se quando AWS_STORAGE_BUCKET_NAME está definido; senão fica em disco local.
+if os.environ.get('AWS_STORAGE_BUCKET_NAME'):
+    STORAGES['default'] = {
+        'BACKEND': 'storages.backends.s3.S3Storage',
+        'OPTIONS': {
+            'bucket_name': os.environ['AWS_STORAGE_BUCKET_NAME'],
+            'access_key': os.environ.get('AWS_ACCESS_KEY_ID'),
+            'secret_key': os.environ.get('AWS_SECRET_ACCESS_KEY'),
+            'endpoint_url': os.environ.get('AWS_S3_ENDPOINT_URL'),   # R2: https://<account_id>.r2.cloudflarestorage.com
+            'region_name': os.environ.get('AWS_S3_REGION_NAME', 'auto'),
+            'custom_domain': os.environ.get('AWS_S3_CUSTOM_DOMAIN') or None,
+            'querystring_auth': os.environ.get('AWS_S3_QUERYSTRING_AUTH', 'False') == 'True',
+            'file_overwrite': False,
+            'default_acl': None,  # o R2 não usa ACLs
+        },
+    }
+
 # Media (fotos dos registos de serviço)
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'

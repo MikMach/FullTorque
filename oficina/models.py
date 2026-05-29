@@ -13,6 +13,7 @@ import calendar
 from decimal import Decimal
 
 from django.conf import settings
+from django.contrib.auth.hashers import check_password, make_password
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
@@ -203,6 +204,9 @@ class Funcionario(models.Model):
     cargo = models.CharField(max_length=80, blank=True, help_text='Ex.: mecânico, rececionista.')
     ativo = models.BooleanField(default=True)
     data_admissao = models.DateField('data de admissão', null=True, blank=True)
+    pin = models.CharField(
+        'PIN', max_length=128, blank=True,
+        help_text='PIN de acesso ao tablet (guardado cifrado).')
 
     class Meta:
         verbose_name = 'funcionário'
@@ -211,6 +215,16 @@ class Funcionario(models.Model):
 
     def __str__(self):
         return self.nome
+
+    def set_pin(self, raw):
+        self.pin = make_password(raw) if raw else ''
+
+    def check_pin(self, raw):
+        return bool(self.pin) and bool(raw) and check_password(raw, self.pin)
+
+    @property
+    def tem_pin(self):
+        return bool(self.pin)
 
 
 class Viatura(models.Model):

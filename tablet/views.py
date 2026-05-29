@@ -2,6 +2,8 @@
 from decimal import Decimal, InvalidOperation
 from functools import wraps
 
+from django.contrib import messages
+from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -136,3 +138,22 @@ def nova_ordem(request):
     return render(request, 'tablet/nova.html', {
         'func': _funcionario(request),
         'viaturas': Viatura.objects.select_related('marca', 'modelo', 'cliente').order_by('matricula')})
+
+
+def login_pin(request):
+    """Login por PIN (kiosk do tablet): escolher funcionário + 4 dígitos."""
+    if request.user.is_authenticated:
+        return redirect('tablet:inicio')
+    if request.method == 'POST':
+        f = Funcionario.objects.filter(pk=request.POST.get('funcionario'), ativo=True).first()
+        if f and f.user and f.check_pin(request.POST.get('pin', '')):
+            login(request, f.user, backend='django.contrib.auth.backends.ModelBackend')
+            destino = request.POST.get('next', '')
+            if not destino.startswith('/'):
+                destino = ''
+            return redirect(destino or 'tablet:inicio')
+        messages.error(request, 'PIN incorreto. Tenta de novo.')
+    funcionarios = (Funcionario.objects.filter(ativo=True, user__isnull=False)
+                    .exclude(pin='').order_by('nome'))
+    return render(request, 'tablet/login_pin.html', {
+        'funcionarios': funcionarios, 'next': request.GET.get('next', '')})

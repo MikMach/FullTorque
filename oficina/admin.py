@@ -1,3 +1,4 @@
+from django import forms
 from django.contrib import admin, messages
 from unfold.admin import ModelAdmin, TabularInline
 from unfold.decorators import display
@@ -126,12 +127,36 @@ class StockPecaAdmin(ModelAdmin):
 # ---------------------------------------------------------------------------
 # Funcionários e viaturas
 # ---------------------------------------------------------------------------
+class FuncionarioAdminForm(forms.ModelForm):
+    novo_pin = forms.CharField(
+        required=False, label='Definir PIN (4 dígitos)',
+        help_text='Para o login no tablet. Deixa vazio para manter o atual.',
+        widget=forms.TextInput(attrs={'inputmode': 'numeric', 'maxlength': '6', 'autocomplete': 'off'}))
+
+    class Meta:
+        model = Funcionario
+        exclude = ('pin',)
+
+    def save(self, commit=True):
+        obj = super().save(commit=False)
+        if self.cleaned_data.get('novo_pin'):
+            obj.set_pin(self.cleaned_data['novo_pin'])
+        if commit:
+            obj.save()
+        return obj
+
+
 @admin.register(Funcionario)
 class FuncionarioAdmin(ModelAdmin):
-    list_display = ('nome', 'cargo', 'local', 'telefone', 'ativo')
+    form = FuncionarioAdminForm
+    list_display = ('nome', 'cargo', 'local', 'telefone', 'tem_pin_badge', 'ativo')
     list_filter = ('local', 'ativo', 'cargo')
     search_fields = ('nome', 'telefone', 'cargo')
     autocomplete_fields = ('user', 'local')
+
+    @admin.display(boolean=True, description='PIN?')
+    def tem_pin_badge(self, obj):
+        return obj.tem_pin
 
 
 class IPOFilter(admin.SimpleListFilter):

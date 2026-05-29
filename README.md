@@ -43,6 +43,7 @@ python manage.py runserver
 - **Funcionários** (acesso simplificado): `joao@fulltorque.pt`, `maria@fulltorque.pt`,
   `pedro@fulltorque.pt` — password `demo12345`
 - **Cliente** (portal em `/cliente/`): `cliente@fulltorque.pt` — password `demo12345`
+- **Tablet** (`/tablet/`, login por PIN): João `1234` · Maria `2345` · Pedro `3456`
 
 > Troca estas credenciais antes de usar a sério.
 
@@ -90,8 +91,17 @@ python manage.py runserver
   horários cheios deixam de aparecer (HTMX) e são recusados na validação.
 - **Notificações por email** ao criar marcação (confirmação ao cliente + alerta à oficina;
   consola em desenvolvimento, SMTP em produção).
+- **Tablet do funcionário** (`/tablet/`, login por PIN): ordens de trabalho com cronómetro
+  automático, fotos pela câmara (estado à entrada / imprevistos) e extras fora do orçamento —
+  ao concluir, gera o registo append-only.
+
+## Em produção
+
+Define as variáveis de ambiente (ver `.env.example`): `DJANGO_SECRET_KEY`, `DJANGO_DEBUG=False`,
+`DJANGO_ALLOWED_HOSTS`, `DATABASE_URL` (Postgres) e — para guardar as fotos — `AWS_STORAGE_BUCKET_NAME`
++ credenciais do Cloudflare R2 / S3 (`storages.backends.s3.S3Storage` ativa-se automaticamente).
 
 ## Ainda não feito (fases posteriores)
 
 Faturação/PDF dos orçamentos; notificações por SMS; confirmação/lembrete automático das
-marcações; tablet dedicado do funcionário; conteúdo real (morada, serviços).
+marcações; conteúdo real (morada, serviços).

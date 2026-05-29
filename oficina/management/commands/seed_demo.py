@@ -107,6 +107,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS('\n✓ Demo data criada com sucesso.'))
         self.stdout.write('  Funcionários (admin): joao@fulltorque.pt / maria@fulltorque.pt / pedro@fulltorque.pt — password: demo12345')
         self.stdout.write('  Cliente (portal): cliente@fulltorque.pt — password: demo12345')
+        self.stdout.write('  Tablet (PIN): João 1234 · Maria 2345 · Pedro 3456')
 
     # ------------------------------------------------------------------ reset
     def _reset(self):
@@ -206,13 +207,13 @@ class Command(BaseCommand):
 
     def _funcionarios(self, locais):
         dados = [
-            ('joao@fulltorque.pt', 'João', 'Silva', 'Mecânico', locais[0]),
-            ('maria@fulltorque.pt', 'Maria', 'Santos', 'Rececionista', locais[0]),
-            ('pedro@fulltorque.pt', 'Pedro', 'Costa', 'Mecânico', locais[1]),
+            ('joao@fulltorque.pt', 'João', 'Silva', 'Mecânico', locais[0], '1234'),
+            ('maria@fulltorque.pt', 'Maria', 'Santos', 'Rececionista', locais[0], '2345'),
+            ('pedro@fulltorque.pt', 'Pedro', 'Costa', 'Mecânico', locais[1], '3456'),
         ]
         grupo = Group.objects.get(name='Funcionário')
         funcionarios = []
-        for email, nome, apelido, cargo, local in dados:
+        for email, nome, apelido, cargo, local, pin in dados:
             user, created = User.objects.get_or_create(email=email, defaults={
                 'first_name': nome, 'last_name': apelido,
                 'papel': User.Papel.FUNCIONARIO, 'is_staff': True})
@@ -223,8 +224,10 @@ class Command(BaseCommand):
             func, _ = Funcionario.objects.get_or_create(user=user, defaults={
                 'nome': f'{nome} {apelido}', 'cargo': cargo, 'local': local,
                 'data_admissao': self.hoje - timedelta(days=random.randint(200, 1500))})
+            func.set_pin(pin)
+            func.save(update_fields=['pin'])
             funcionarios.append(func)
-        self.stdout.write(f'  {len(funcionarios)} funcionários (com login).')
+        self.stdout.write(f'  {len(funcionarios)} funcionários (login + PIN).')
         return funcionarios
 
     def _clientes(self):

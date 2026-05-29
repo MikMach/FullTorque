@@ -6,8 +6,9 @@ from . import views
 app_name = 'tablet'
 
 urlpatterns = [
-    path('entrar/', auth_views.LoginView.as_view(
-        template_name='tablet/login.html', redirect_authenticated_user=True), name='login'),
+    path('entrar/', views.login_pin, name='login'),
+    path('entrar/email/', auth_views.LoginView.as_view(
+        template_name='tablet/login.html', redirect_authenticated_user=True), name='login_email'),
     path('sair/', auth_views.LogoutView.as_view(next_page='tablet:login'), name='logout'),
     path('', views.inicio, name='inicio'),
     path('nova/', views.nova_ordem, name='nova_ordem'),
