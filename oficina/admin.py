@@ -60,6 +60,14 @@ class ModeloAdmin(ModelAdmin):
     search_fields = ('nome', 'marca__nome')
     autocomplete_fields = ('marca',)
 
+    def get_search_results(self, request, queryset, search_term):
+        """Filtra o autocomplete de modelos pela marca escolhida (?marca=<id>)."""
+        queryset, may_have_duplicates = super().get_search_results(request, queryset, search_term)
+        marca = request.GET.get('marca')
+        if marca and marca.isdigit():
+            queryset = queryset.filter(marca_id=marca)
+        return queryset, may_have_duplicates
+
 
 # ---------------------------------------------------------------------------
 # Locais, clientes, serviços
@@ -78,6 +86,9 @@ class ViaturaInline(TabularInline):
     fields = ('matricula', 'marca', 'modelo', 'ano', 'local')
     autocomplete_fields = ('marca', 'modelo', 'local')
     show_change_link = True
+
+    class Media:
+        js = ('admin/js/modelo_dependente.js',)
 
 
 @admin.register(Cliente)
@@ -205,6 +216,9 @@ class ViaturaAdmin(ModelAdmin):
     search_fields = ('matricula', 'marca__nome', 'modelo__nome', 'vin', 'cliente__nome')
     autocomplete_fields = ('cliente', 'local', 'marca', 'modelo')
     inlines = [RegistoHistoricoInline]
+
+    class Media:
+        js = ('admin/js/modelo_dependente.js',)
 
     @admin.display(description='Km atual')
     def km_atual(self, obj):
