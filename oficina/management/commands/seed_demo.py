@@ -14,6 +14,7 @@ from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
+from django.core.management import call_command
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
@@ -25,24 +26,7 @@ from oficina.models import (
 
 User = get_user_model()
 
-CATALOGO = {
-    'Renault': ['Clio', 'Mégane', 'Captur', 'Kadjar', 'Twingo'],
-    'Peugeot': ['208', '308', '2008', '3008', '508'],
-    'Volkswagen': ['Polo', 'Golf', 'T-Roc', 'Passat', 'Tiguan'],
-    'Mercedes-Benz': ['Classe A', 'Classe C', 'CLA', 'GLA'],
-    'BMW': ['Série 1', 'Série 3', 'X1', 'X3'],
-    'Audi': ['A1', 'A3', 'A4', 'Q3'],
-    'Citroën': ['C3', 'C4', 'C5 Aircross', 'Berlingo'],
-    'Opel': ['Corsa', 'Astra', 'Mokka'],
-    'Ford': ['Fiesta', 'Focus', 'Puma', 'Kuga'],
-    'Toyota': ['Yaris', 'Corolla', 'C-HR', 'RAV4'],
-    'Dacia': ['Sandero', 'Duster', 'Jogger'],
-    'Fiat': ['500', 'Panda', 'Tipo'],
-    'Seat': ['Ibiza', 'Leon', 'Arona'],
-    'Nissan': ['Micra', 'Qashqai', 'Juke'],
-    'Hyundai': ['i10', 'i20', 'i30', 'Tucson'],
-    'Kia': ['Picanto', 'Rio', 'Sportage'],
-}
+# Catálogo de marcas/modelos vive em oficina/catalogo.py (comando seed_catalogo).
 
 TIPOS_SERVICO = [
     # (nome, preço base, intervalo_km, intervalo_meses, descrição)
@@ -103,7 +87,9 @@ class Command(BaseCommand):
             return
 
         self._grupos()
-        marcas, modelos = self._catalogo_viaturas()
+        self._dono()
+        call_command('seed_catalogo')
+        modelos = list(Modelo.objects.filter(ativo=True))
         tipos = self._tipos_servico()
         pecas = self._pecas()
         locais = self._locais()
@@ -163,17 +149,14 @@ class Command(BaseCommand):
         self.stdout.write(f'  Grupo "Funcionário" com {len(perms)} permissões.')
 
     # -------------------------------------------------------------- catálogos
-    def _catalogo_viaturas(self):
-        marcas, modelos = {}, []
-        for nome_marca, lista in CATALOGO.items():
-            marca, _ = Marca.objects.get_or_create(
-                nome=nome_marca, defaults={'slug': self._slug(nome_marca)})
-            marcas[nome_marca] = marca
-            for nome_modelo in lista:
-                modelo, _ = Modelo.objects.get_or_create(marca=marca, nome=nome_modelo)
-                modelos.append(modelo)
-        self.stdout.write(f'  {len(marcas)} marcas, {len(modelos)} modelos.')
-        return marcas, modelos
+    def _dono(self):
+        user, criado = User.objects.get_or_create(email='dono@fulltorque.pt', defaults={
+            'first_name': 'Rui', 'papel': User.Papel.DONO,
+            'is_staff': True, 'is_superuser': True})
+        if criado:
+            user.set_password('FullTorque2026')
+            user.save()
+        self.stdout.write('  Dono (superuser): dono@fulltorque.pt' + (' [novo]' if criado else ''))
 
     def _tipos_servico(self):
         tipos = {}
