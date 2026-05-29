@@ -1,0 +1,21 @@
+{% extends "tablet/base_tablet.html" %}
+{% load static %}
+
+{% block content %}
+{% url 'tablet:inicio' as inicio_url %}
+<div class="mx-auto max-w-sm pt-8">
+  <div class="t-card p-8 text-center">
+    <img src="{% static 'img/emblem-96.png' %}" class="mx-auto h-16 w-16" alt="Full Torque" />
+    <h1 class="mt-4 text-2xl font-bold">Tablet do funcionário</h1>
+    <p class="mt-1 text-sm text-zinc-500">Inicia sessão para ver os teus trabalhos.</p>
+    <form method="post" class="mt-6 space-y-4 text-left">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.GET.next|default:inicio_url }}">
+      {% if form.errors %}<div class="rounded-xl bg-red-50 p-3 text-sm text-red-700">Email ou palavra-passe inválidos.</div>{% endif %}
+      <div><label class="text-sm font-medium text-zinc-600">Email</label>{{ form.username }}</div>
+      <div><label class="text-sm font-medium text-zinc-600">Palavra-passe</label>{{ form.password }}</div>
+      <button class="t-btn-primary w-full" type="submit">Entrar</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

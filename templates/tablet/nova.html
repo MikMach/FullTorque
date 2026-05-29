@@ -1,0 +1,17 @@
+{% extends "tablet/base_tablet.html" %}
+
+{% block content %}
+<a href="{% url 'tablet:inicio' %}" class="text-sm text-zinc-500">← Trabalhos</a>
+<div class="t-card mt-2 max-w-lg p-6">
+  <h1 class="text-2xl font-bold">Novo trabalho</h1>
+  <p class="mt-1 text-sm text-zinc-500">Escolhe a viatura para abrir uma ordem de trabalho.</p>
+  <form method="post" class="mt-5 space-y-4">
+    {% csrf_token %}
+    <select name="viatura" required>
+      <option value="">— Escolher viatura —</option>
+      {% for v in viaturas %}<option value="{{ v.pk }}">{{ v.matricula }} · {{ v.marca }} {{ v.modelo.nome }} ({{ v.cliente.nome }})</option>{% endfor %}
+    </select>
+    <button class="t-btn-primary w-full" type="submit">Criar ordem</button>
+  </form>
+</div>
+{% endblock %}

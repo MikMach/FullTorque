@@ -1,0 +1,20 @@
+{% extends "tablet/base_tablet.html" %}
+
+{% block title %}{{ ordem.viatura.matricula }} · Tablet{% endblock %}
+
+{% block content %}
+<a href="{% url 'tablet:inicio' %}" class="text-sm text-zinc-500">← Trabalhos</a>
+<div class="t-card mt-2 p-5">
+  <div class="flex items-start justify-between gap-4">
+    <div>
+      <h1 class="font-mono text-3xl font-extrabold">{{ ordem.viatura.matricula }}</h1>
+      <p class="text-zinc-600">{{ ordem.viatura.marca }} {{ ordem.viatura.modelo.nome }} · {{ ordem.viatura.cliente.nome }}</p>
+    </div>
+    <span class="text-right text-sm text-zinc-500">{{ ordem.tipo_servico|default:'—' }}<br>OT#{{ ordem.pk }}</span>
+  </div>
+</div>
+
+{% include "tablet/_painel.html" %}
+{% include "tablet/_fotos.html" %}
+{% include "tablet/_extras.html" %}
+{% endblock %}

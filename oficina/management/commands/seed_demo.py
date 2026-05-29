@@ -21,7 +21,7 @@ from django.utils import timezone
 from oficina.models import (
     Cliente, Funcionario, Inspecao, ItemInspecao, ItemOrcamento, Local, Marca,
     Marcacao, Modelo, Orcamento, Peca, PecaServico, RegistoServico, StockPeca,
-    TipoServico, Viatura,
+    TipoServico, Viatura, OrdemTrabalho, SessaoTrabalho, ItemOrdem, FotoOrdem,
 )
 
 User = get_user_model()
@@ -102,6 +102,7 @@ class Command(BaseCommand):
         self._inspecoes(viaturas, funcionarios)
         self._orcamentos(viaturas, tipos, funcionarios, pecas)
         self._marcacoes(viaturas, tipos, funcionarios)
+        self._ordens(viaturas, tipos, funcionarios, pecas)
 
         self.stdout.write(self.style.SUCCESS('\n✓ Demo data criada com sucesso.'))
         self.stdout.write('  Funcionários (admin): joao@fulltorque.pt / maria@fulltorque.pt / pedro@fulltorque.pt — password: demo12345')
@@ -112,6 +113,8 @@ class Command(BaseCommand):
         self.stdout.write('A apagar dados operacionais...')
         # Ordem: filhos antes de pais (FKs PROTECT). queryset.delete() ignora o
         # guard append-only do RegistoServico — aceitável num comando de seed.
+        FotoOrdem.objects.all().delete()
+        OrdemTrabalho.objects.all().delete()   # cascata: sessões + itens
         PecaServico.objects.all().delete()
         for m in (Orcamento, Inspecao, Marcacao):
             m.objects.all().delete()
@@ -135,7 +138,8 @@ class Command(BaseCommand):
         perms = list(oficina_perms.filter(codename__startswith='view_'))
         # Criar/editar nos modelos operacionais
         operacionais = ['viatura', 'cliente', 'inspecao', 'iteminspecao', 'orcamento',
-                        'itemorcamento', 'marcacao', 'pecaservico', 'fotoregisto']
+                        'itemorcamento', 'marcacao', 'pecaservico', 'fotoregisto',
+                        'ordemtrabalho', 'sessaotrabalho', 'itemordem', 'fotoordem']
         for model in operacionais:
             for acao in ('add', 'change'):
                 p = oficina_perms.filter(codename=f'{acao}_{model}').first()
@@ -371,6 +375,36 @@ class Command(BaseCommand):
                 notas='')
             n += 1
         self.stdout.write(f'  {n} marcações futuras.')
+
+    def _ordens(self, viaturas, tipos, funcionarios, pecas):
+        n = 0
+        for i, viatura in enumerate(random.sample(viaturas, min(4, len(viaturas)))):
+            func = random.choice(funcionarios)
+            ordem = OrdemTrabalho.objects.create(
+                viatura=viatura, local=viatura.local, funcionario=func,
+                tipo_servico=random.choice(list(tipos.values())),
+                quilometragem=viatura.quilometragem_atual or random.randint(40000, 150000),
+                notas='Trabalho de demonstração.')
+            inicio = timezone.now() - timedelta(hours=random.randint(3, 7))
+            SessaoTrabalho.objects.create(
+                ordem=ordem, funcionario=func, inicio=inicio,
+                fim=inicio + timedelta(minutes=random.randint(45, 150)))
+            if i == 0:
+                # uma fica a decorrer (sessão aberta) -> em execução
+                SessaoTrabalho.objects.create(
+                    ordem=ordem, funcionario=func, inicio=timezone.now() - timedelta(minutes=25))
+                ordem.estado = OrdemTrabalho.Estado.EM_EXECUCAO
+            else:
+                ordem.estado = OrdemTrabalho.Estado.PAUSADA
+            ordem.save(update_fields=['estado'])
+            for ref in random.sample(list(pecas), random.randint(1, 2)):
+                peca = pecas[ref]
+                ItemOrdem.objects.create(
+                    ordem=ordem, tipo=ItemOrdem.Tipo.PECA, peca=peca, descricao=peca.nome,
+                    quantidade=Decimal(random.randint(1, 2)), preco_unitario=peca.preco_venda,
+                    fora_orcamento=True, nota='Imprevisto detetado durante o trabalho.')
+            n += 1
+        self.stdout.write(f'  {n} ordens de trabalho (tempo + extras).')
 
     # ----------------------------------------------------------------- helpers
     @staticmethod

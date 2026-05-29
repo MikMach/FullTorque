@@ -569,3 +569,187 @@ class Marcacao(models.Model):
 
     def __str__(self):
         return f'{self.cliente} — {self.data_hora:%Y-%m-%d %H:%M}'
+
+
+# ---------------------------------------------------------------------------
+# Ordens de trabalho (tablet do funcionário): trabalho ao vivo + tempo + extras + fotos
+# ---------------------------------------------------------------------------
+class OrdemTrabalho(models.Model):
+    """Trabalho ao vivo numa viatura (gerido pelo funcionário no tablet).
+
+    Editável enquanto decorre; ao concluir gera um RegistoServico APPEND-ONLY
+    (a prova permanente que protege a garantia).
+    """
+
+    class Estado(models.TextChoices):
+        ABERTA = 'aberta', 'Aberta'
+        EM_EXECUCAO = 'em_execucao', 'Em execução'
+        PAUSADA = 'pausada', 'Pausada'
+        CONCLUIDA = 'concluida', 'Concluída'
+        CANCELADA = 'cancelada', 'Cancelada'
+
+    viatura = models.ForeignKey(Viatura, on_delete=models.PROTECT, related_name='ordens')
+    local = models.ForeignKey(Local, on_delete=models.PROTECT, related_name='ordens')
+    tipo_servico = models.ForeignKey(
+        TipoServico, on_delete=models.PROTECT, null=True, blank=True, related_name='ordens')
+    funcionario = models.ForeignKey(
+        Funcionario, on_delete=models.SET_NULL, null=True, blank=True, related_name='ordens')
+    orcamento = models.ForeignKey(
+        Orcamento, on_delete=models.SET_NULL, null=True, blank=True, related_name='ordens',
+        help_text='Orçamento de referência (para comparar com os extras).')
+    marcacao = models.ForeignKey(
+        Marcacao, on_delete=models.SET_NULL, null=True, blank=True, related_name='ordens')
+
+    estado = models.CharField(max_length=12, choices=Estado.choices, default=Estado.ABERTA)
+    quilometragem = models.PositiveIntegerField('quilometragem à entrada', null=True, blank=True)
+    notas = models.TextField(blank=True)
+
+    registo_gerado = models.ForeignKey(
+        RegistoServico, on_delete=models.SET_NULL, null=True, blank=True, related_name='ordem_origem')
+    criado_em = models.DateTimeField(auto_now_add=True)
+    concluida_em = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'ordem de trabalho'
+        verbose_name_plural = 'ordens de trabalho'
+        ordering = ['-criado_em']
+
+    def __str__(self):
+        return f'OT#{self.pk} — {self.viatura.matricula}'
+
+    @property
+    def segundos_trabalhados(self):
+        return sum((s.segundos for s in self.sessoes.all()), 0)
+
+    @property
+    def horas_formatadas(self):
+        horas, minutos = divmod(self.segundos_trabalhados // 60, 60)
+        return f'{horas}h{minutos:02d}'
+
+    @property
+    def sessao_ativa(self):
+        return self.sessoes.filter(fim__isnull=True).first()
+
+    @property
+    def total_extras(self):
+        return sum((i.subtotal for i in self.itens.filter(fora_orcamento=True)), Decimal('0.00'))
+
+    def iniciar(self, funcionario):
+        if not self.sessoes.filter(fim__isnull=True, funcionario=funcionario).exists():
+            SessaoTrabalho.objects.create(ordem=self, funcionario=funcionario)
+        if self.estado in (self.Estado.ABERTA, self.Estado.PAUSADA):
+            self.estado = self.Estado.EM_EXECUCAO
+            self.save(update_fields=['estado'])
+
+    def parar(self, funcionario=None):
+        sessoes = self.sessoes.filter(fim__isnull=True)
+        if funcionario:
+            sessoes = sessoes.filter(funcionario=funcionario)
+        for sessao in sessoes:
+            sessao.fim = timezone.now()
+            sessao.save(update_fields=['fim'])
+        if self.estado == self.Estado.EM_EXECUCAO and not self.sessoes.filter(fim__isnull=True).exists():
+            self.estado = self.Estado.PAUSADA
+            self.save(update_fields=['estado'])
+
+    def concluir(self, user=None):
+        """Fecha a ordem e gera o RegistoServico append-only (com peças e extras)."""
+        if self.estado == self.Estado.CONCLUIDA and self.registo_gerado_id:
+            return self.registo_gerado
+        self.parar()
+        tipo = self.tipo_servico or TipoServico.objects.filter(ativo=True).first()
+        if tipo is None:
+            raise ValidationError('Sem TipoServico definido para gerar o registo.')
+        primeira = self.sessoes.first()
+        func = self.funcionario or (primeira.funcionario if primeira else None)
+        registo = RegistoServico.objects.create(
+            viatura=self.viatura, local=self.local, funcionario=func, tipo_servico=tipo,
+            data_servico=timezone.localdate(), quilometragem=self.quilometragem,
+            trabalho_feito=(self.notas or f'Trabalho concluído ({self.horas_formatadas}).'),
+            estado=RegistoServico.Estado.CONCLUIDO, registado_por=user)
+        for item in self.itens.filter(tipo=ItemOrdem.Tipo.PECA):
+            PecaServico.objects.create(
+                registo=registo, peca=item.peca, descricao=item.descricao,
+                quantidade=item.quantidade, preco_unitario=item.preco_unitario)
+        self.estado = self.Estado.CONCLUIDA
+        self.concluida_em = timezone.now()
+        self.registo_gerado = registo
+        self.save(update_fields=['estado', 'concluida_em', 'registo_gerado'])
+        return registo
+
+
+class SessaoTrabalho(models.Model):
+    """Sessão de tempo de um funcionário numa ordem (o sistema soma as horas)."""
+
+    ordem = models.ForeignKey(OrdemTrabalho, on_delete=models.CASCADE, related_name='sessoes')
+    funcionario = models.ForeignKey(Funcionario, on_delete=models.PROTECT, related_name='sessoes')
+    inicio = models.DateTimeField(default=timezone.now)
+    fim = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'sessão de trabalho'
+        verbose_name_plural = 'sessões de trabalho'
+        ordering = ['inicio']
+
+    def __str__(self):
+        return f'{self.funcionario} · {self.inicio:%d/%m %H:%M}'
+
+    @property
+    def segundos(self):
+        return max(0, int(((self.fim or timezone.now()) - self.inicio).total_seconds()))
+
+
+class ItemOrdem(models.Model):
+    """Peça/mão de obra acrescentada numa ordem; `fora_orcamento` marca os imprevistos."""
+
+    class Tipo(models.TextChoices):
+        MAO_OBRA = 'mao_obra', 'Mão de obra'
+        PECA = 'peca', 'Peça'
+
+    ordem = models.ForeignKey(OrdemTrabalho, on_delete=models.CASCADE, related_name='itens')
+    tipo = models.CharField(max_length=10, choices=Tipo.choices, default=Tipo.PECA)
+    peca = models.ForeignKey(Peca, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    descricao = models.CharField('descrição', max_length=200)
+    quantidade = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal('1.00'))
+    preco_unitario = models.DecimalField('preço unitário', max_digits=8, decimal_places=2, default=Decimal('0.00'))
+    fora_orcamento = models.BooleanField('fora do orçamento (extra)', default=True)
+    nota = models.CharField(max_length=255, blank=True, help_text='Justificação do imprevisto.')
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'item da ordem'
+        verbose_name_plural = 'itens da ordem'
+        ordering = ['criado_em']
+
+    def __str__(self):
+        return f'{self.descricao} ×{self.quantidade}'
+
+    @property
+    def subtotal(self):
+        return (self.quantidade or 0) * (self.preco_unitario or 0)
+
+
+class FotoOrdem(models.Model):
+    """Foto tirada no tablet durante a ordem (danos à entrada, imprevistos, etc.)."""
+
+    class Categoria(models.TextChoices):
+        ENTRADA = 'entrada', 'Estado à entrada'
+        IMPREVISTO = 'imprevisto', 'Imprevisto'
+        DURANTE = 'durante', 'Durante o trabalho'
+        FIM = 'fim', 'Trabalho concluído'
+
+    ordem = models.ForeignKey(OrdemTrabalho, on_delete=models.PROTECT, related_name='fotos')
+    item = models.ForeignKey(ItemOrdem, on_delete=models.SET_NULL, null=True, blank=True, related_name='fotos')
+    imagem = models.ImageField(upload_to='ordens/%Y/%m/')
+    categoria = models.CharField(max_length=12, choices=Categoria.choices, default=Categoria.DURANTE)
+    legenda = models.CharField(max_length=200, blank=True)
+    funcionario = models.ForeignKey(Funcionario, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'foto da ordem'
+        verbose_name_plural = 'fotos da ordem'
+        ordering = ['criado_em']
+
+    def __str__(self):
+        return f'{self.get_categoria_display()} — OT#{self.ordem_id}'

@@ -1,0 +1,31 @@
+<div id="painel" class="t-card mt-4 p-5">
+  <div class="flex items-center justify-between">
+    <div>
+      <p class="text-sm text-zinc-500">Tempo trabalhado</p>
+      <p class="font-display text-3xl font-extrabold">{{ ordem.horas_formatadas }}</p>
+    </div>
+    {% if ordem.estado == 'concluida' %}
+      <span class="chip bg-green-100 text-sm text-green-700">✓ Concluída</span>
+    {% elif ordem.sessao_ativa %}
+      <span class="chip bg-amber-100 text-sm text-amber-700">▶ A decorrer</span>
+    {% else %}
+      <span class="chip bg-zinc-100 text-sm text-zinc-600">{{ ordem.get_estado_display }}</span>
+    {% endif %}
+  </div>
+
+  {% if ordem.estado != 'concluida' %}
+    <div class="mt-4 grid grid-cols-2 gap-3">
+      {% if ordem.sessao_ativa %}
+        <button class="t-btn-outline" hx-post="{% url 'tablet:parar' ordem.pk %}" hx-target="#painel" hx-swap="outerHTML">⏸ Pausar</button>
+      {% else %}
+        <button class="t-btn-primary" hx-post="{% url 'tablet:iniciar' ordem.pk %}" hx-target="#painel" hx-swap="outerHTML">▶ {% if ordem.segundos_trabalhados %}Retomar{% else %}Iniciar{% endif %}</button>
+      {% endif %}
+      <form method="post" action="{% url 'tablet:concluir' ordem.pk %}" onsubmit="return confirm('Concluir o trabalho e gerar o registo permanente?');">
+        {% csrf_token %}
+        <button type="submit" class="t-btn-dark w-full">✓ Concluir</button>
+      </form>
+    </div>
+  {% else %}
+    <p class="mt-3 text-sm text-zinc-500">Registo permanente gerado — esta ordem está fechada.</p>
+  {% endif %}
+</div>

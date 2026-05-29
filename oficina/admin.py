@@ -20,6 +20,10 @@ from .models import (
     StockPeca,
     TipoServico,
     Viatura,
+    OrdemTrabalho,
+    SessaoTrabalho,
+    ItemOrdem,
+    FotoOrdem,
 )
 
 admin.site.site_header = 'Full Torque — Gestão'
@@ -342,3 +346,64 @@ class MarcacaoAdmin(ModelAdmin):
         'Pendente': 'info', 'Confirmada': 'warning', 'Concluída': 'success', 'Cancelada': 'danger'})
     def estado_badge(self, obj):
         return obj.get_estado_display()
+
+
+# ---------------------------------------------------------------------------
+# Ordens de trabalho (tablet)
+# ---------------------------------------------------------------------------
+class SessaoTrabalhoInline(TabularInline):
+    model = SessaoTrabalho
+    extra = 0
+    autocomplete_fields = ('funcionario',)
+    readonly_fields = ('duracao',)
+    fields = ('funcionario', 'inicio', 'fim', 'duracao')
+
+    @admin.display(description='Duração')
+    def duracao(self, obj):
+        if not obj.pk:
+            return '—'
+        horas, minutos = divmod(obj.segundos // 60, 60)
+        return f'{horas}h{minutos:02d}'
+
+
+class ItemOrdemInline(TabularInline):
+    model = ItemOrdem
+    extra = 0
+    autocomplete_fields = ('peca',)
+    fields = ('tipo', 'descricao', 'peca', 'quantidade', 'preco_unitario', 'fora_orcamento', 'nota')
+
+
+class FotoOrdemInline(TabularInline):
+    model = FotoOrdem
+    extra = 0
+    fields = ('imagem', 'categoria', 'legenda', 'item')
+
+
+@admin.register(OrdemTrabalho)
+class OrdemTrabalhoAdmin(ModelAdmin):
+    list_display = ('id', 'viatura', 'estado_badge', 'funcionario', 'local', 'horas', 'extras', 'criado_em')
+    list_filter = ('estado', 'local')
+    search_fields = ('viatura__matricula', 'notas')
+    date_hierarchy = 'criado_em'
+    autocomplete_fields = ('viatura', 'local', 'tipo_servico', 'funcionario', 'orcamento', 'marcacao')
+    readonly_fields = ('registo_gerado', 'horas', 'criado_em', 'concluida_em')
+    inlines = [SessaoTrabalhoInline, ItemOrdemInline, FotoOrdemInline]
+    fieldsets = (
+        ('Trabalho', {'fields': ('viatura', 'local', 'tipo_servico', 'funcionario', 'estado', 'quilometragem', 'notas')}),
+        ('Referências', {'fields': ('orcamento', 'marcacao')}),
+        ('Tempo / resultado', {'fields': ('horas', 'registo_gerado', 'criado_em', 'concluida_em')}),
+    )
+
+    @display(description='Estado', label={
+        'Aberta': 'info', 'Em execução': 'warning', 'Pausada': 'warning',
+        'Concluída': 'success', 'Cancelada': 'danger'})
+    def estado_badge(self, obj):
+        return obj.get_estado_display()
+
+    @admin.display(description='Horas')
+    def horas(self, obj):
+        return obj.horas_formatadas
+
+    @admin.display(description='Extras (€)')
+    def extras(self, obj):
+        return f'{obj.total_extras:.2f} €'

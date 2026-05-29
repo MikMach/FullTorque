@@ -1,0 +1,27 @@
+<div id="fotos" class="t-card mt-4 p-5">
+  <h2 class="text-lg font-bold">Fotos <span class="text-base font-normal text-zinc-400">({{ fotos|length }})</span></h2>
+  <p class="text-sm text-zinc-500">Documenta o estado à entrada e os imprevistos.</p>
+
+  {% if ordem.estado != 'concluida' %}
+    <form hx-post="{% url 'tablet:foto' ordem.pk %}" hx-target="#fotos" hx-swap="outerHTML" hx-encoding="multipart/form-data" class="mt-3 space-y-2">
+      <select name="categoria">{% for v, l in categorias %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select>
+      <label class="t-btn-outline w-full cursor-pointer">
+        📷 Tirar / escolher foto
+        <input type="file" name="imagem" accept="image/*" capture="environment" class="hidden" onchange="this.form.requestSubmit()">
+      </label>
+    </form>
+  {% endif %}
+
+  {% if fotos %}
+    <div class="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-4">
+      {% for f in fotos %}
+        <div class="relative">
+          <img src="{{ f.imagem.url }}" class="aspect-square w-full rounded-lg object-cover" alt="{{ f.get_categoria_display }}" />
+          <span class="chip absolute left-1 top-1 bg-black/60 text-[10px] text-white">{{ f.get_categoria_display }}</span>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="mt-3 text-sm text-zinc-400">Ainda sem fotos.</p>
+  {% endif %}
+</div>

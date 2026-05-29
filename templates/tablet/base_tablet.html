@@ -1,0 +1,58 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <title>{% block title %}Full Torque · Tablet{% endblock %}</title>
+  <link rel="icon" href="{% static 'img/favicon.ico' %}" sizes="any" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@500;600;700;800&family=Source+Sans+3:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/htmx.org@2.0.3"></script>
+  <script>
+    tailwind.config = { theme: { extend: {
+      colors: { primary: 'hsl(var(--primary))' },
+      fontFamily: { sans: ['"Source Sans 3"', 'system-ui', 'sans-serif'], display: ['Lexend', 'system-ui', 'sans-serif'] },
+    } } };
+  </script>
+  <style type="text/tailwindcss">
+    @layer base {
+      :root { --primary: 0 74% 45%; }
+      body { @apply bg-zinc-100 text-zinc-900 font-sans antialiased; }
+      h1, h2, h3 { @apply font-display tracking-tight; }
+      input:not([type=file]), select, textarea {
+        @apply w-full rounded-xl border border-zinc-300 bg-white px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary;
+      }
+    }
+    @layer components {
+      .t-btn { @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3.5 text-base font-semibold transition cursor-pointer select-none; }
+      .t-btn-primary { @apply t-btn bg-primary text-white hover:brightness-110 shadow-sm; }
+      .t-btn-dark { @apply t-btn bg-zinc-900 text-white hover:bg-zinc-800; }
+      .t-btn-outline { @apply t-btn border-2 border-zinc-200 bg-white text-zinc-800 hover:border-zinc-300; }
+      .t-card { @apply rounded-2xl border border-zinc-200 bg-white shadow-sm; }
+      .chip { @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold; }
+    }
+  </style>
+</head>
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}' class="min-h-screen">
+  {% if user.is_authenticated %}
+    <header class="sticky top-0 z-30 border-b border-zinc-200 bg-white">
+      <div class="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
+        <a href="{% url 'tablet:inicio' %}" class="flex items-center gap-2">
+          <img src="{% static 'img/emblem-96.png' %}" class="h-9 w-9" alt="Full Torque" />
+          <span class="font-display text-lg font-extrabold">Full Torque <span class="font-semibold text-zinc-400">· Tablet</span></span>
+        </a>
+        <div class="flex items-center gap-3">
+          <span class="hidden text-sm text-zinc-500 sm:block">{{ func.nome|default:user.email }}</span>
+          <form method="post" action="{% url 'tablet:logout' %}">{% csrf_token %}<button class="t-btn-outline px-3 py-2 text-sm">Sair</button></form>
+        </div>
+      </div>
+    </header>
+  {% endif %}
+  <main class="mx-auto max-w-5xl px-4 py-5">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

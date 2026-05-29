@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     'oficina',       # domínio: Local, Cliente, Viatura, TipoServico, Funcionario, RegistoServico, Marcacao
     'site_publico',  # site público anónimo
     'portal',        # área de cliente autenticada
+    'tablet',        # tablet do funcionário (ordens de trabalho)
 ]
 
 MIDDLEWARE = [

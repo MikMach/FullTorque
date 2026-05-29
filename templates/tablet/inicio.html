@@ -1,0 +1,47 @@
+{% extends "tablet/base_tablet.html" %}
+
+{% block content %}
+<div class="flex items-center justify-between">
+  <h1 class="text-2xl font-bold">Trabalhos</h1>
+  <a href="{% url 'tablet:nova_ordem' %}" class="t-btn-primary">+ Novo trabalho</a>
+</div>
+
+<h2 class="mb-2 mt-6 text-sm font-semibold uppercase tracking-wide text-zinc-500">Em curso / abertas</h2>
+<div class="grid gap-3 sm:grid-cols-2">
+  {% for o in ordens %}
+    <a href="{% url 'tablet:ordem' o.pk %}" class="t-card block p-4 transition hover:border-primary/40">
+      <div class="flex items-center justify-between">
+        <span class="font-mono text-lg font-bold">{{ o.viatura.matricula }}</span>
+        {% if o.estado == 'em_execucao' %}<span class="chip bg-amber-100 text-amber-700">▶ Em execução</span>
+        {% elif o.estado == 'pausada' %}<span class="chip bg-zinc-100 text-zinc-600">Pausada</span>
+        {% else %}<span class="chip bg-sky-100 text-sky-700">Aberta</span>{% endif %}
+      </div>
+      <p class="mt-1 text-zinc-600">{{ o.viatura.marca }} {{ o.viatura.modelo.nome }}</p>
+      <p class="mt-2 text-sm text-zinc-500">⏱ {{ o.horas_formatadas }}{% if o.total_extras %} · extras {{ o.total_extras|floatformat:0 }}€{% endif %}</p>
+    </a>
+  {% empty %}
+    <p class="text-zinc-500">Sem trabalhos abertos. Cria um novo com “+ Novo trabalho”.</p>
+  {% endfor %}
+</div>
+
+{% if marcacoes %}
+  <h2 class="mb-2 mt-8 text-sm font-semibold uppercase tracking-wide text-zinc-500">Marcações de hoje</h2>
+  <div class="grid gap-3 sm:grid-cols-2">
+    {% for m in marcacoes %}
+      <div class="t-card p-4">
+        <div class="flex items-center justify-between">
+          <span class="font-mono font-bold">{{ m.viatura.matricula|default:'—' }}</span>
+          <span class="text-sm text-zinc-500">{{ m.data_hora|date:'H:i' }}</span>
+        </div>
+        <p class="mt-1 text-zinc-600">{{ m.tipo_servico }} · {{ m.cliente.nome }}</p>
+        <form method="post" action="{% url 'tablet:nova_ordem' %}" class="mt-3">
+          {% csrf_token %}
+          <input type="hidden" name="viatura" value="{{ m.viatura_id }}">
+          <input type="hidden" name="marcacao" value="{{ m.pk }}">
+          <button class="t-btn-dark w-full py-2.5 text-sm" {% if not m.viatura_id %}disabled{% endif %}>Iniciar este trabalho</button>
+        </form>
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+{% endblock %}
