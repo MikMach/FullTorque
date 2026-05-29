@@ -10,6 +10,7 @@
       <h1 class="mt-3 text-3xl font-bold">Olá, {{ cliente.nome }}</h1>
     </div>
     <div class="flex items-center gap-2">
+      <a href="{% url 'portal:faturas' %}" class="btn-ghost h-10 px-3">Faturas</a>
       <a href="{% url 'site_publico:marcar' %}" class="btn-cta h-10 px-4">Marcar serviço</a>
       <form method="post" action="{% url 'portal:logout' %}">{% csrf_token %}<button type="submit" class="btn-ghost h-10 px-3">Sair</button></form>
     </div>

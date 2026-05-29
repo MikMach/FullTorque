@@ -15,4 +15,6 @@ urlpatterns = [
     path('registar/', views.register, name='register'),
     path('', views.dashboard, name='dashboard'),
     path('viatura/<int:pk>/', views.viatura_detail, name='viatura'),
+    path('faturas/', views.faturas, name='faturas'),
+    path('faturas/<int:pk>/pdf/', views.fatura_pdf, name='fatura_pdf'),
 ]

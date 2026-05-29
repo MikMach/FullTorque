@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     'portal',        # área de cliente autenticada
     'tablet',        # tablet do funcionário (ordens de trabalho)
     'sync',          # sincronização oficina (local) <-> cloud
+    'faturacao',     # faturas puxadas do software certificado (API) -> portal
 ]
 
 MIDDLEWARE = [
@@ -123,6 +124,13 @@ FT_ROLE = os.environ.get('FT_ROLE', 'completo')
 SYNC_API_KEY = os.environ.get('SYNC_API_KEY', 'dev-sync-key')
 SYNC_CLOUD_URL = os.environ.get('SYNC_CLOUD_URL', '').rstrip('/')  # base URL da cloud (usado no servidor local)
 
+# Faturação: software certificado (API) de onde PUXAMOS as faturas para o portal.
+# Vazio = desligado (o portal mostra "sem faturas"). Valores: 'demo'|'invoicexpress'|'moloni'.
+FATURACAO_PROVIDER = os.environ.get('FATURACAO_PROVIDER', '')
+FATURACAO_API_KEY = os.environ.get('FATURACAO_API_KEY', '')
+FATURACAO_CONTA = os.environ.get('FATURACAO_CONTA', '')        # conta/empresa no software
+FATURACAO_API_URL = os.environ.get('FATURACAO_API_URL', '')   # base URL, se aplicável
+
 
 # Tema do admin (django-unfold) — branding e cores alinhadas com o site público.
 UNFOLD = {
@@ -166,6 +174,7 @@ UNFOLD = {
                     {'title': 'Inspeções', 'icon': 'checklist', 'link': reverse_lazy('admin:oficina_inspecao_changelist')},
                     {'title': 'Orçamentos', 'icon': 'request_quote', 'link': reverse_lazy('admin:oficina_orcamento_changelist')},
                     {'title': 'Clientes', 'icon': 'group', 'link': reverse_lazy('admin:oficina_cliente_changelist')},
+                    {'title': 'Faturas', 'icon': 'receipt_long', 'link': reverse_lazy('admin:faturacao_fatura_changelist')},
                 ],
             },
             {

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}As minhas faturas — Full Torque{% endblock %}
+
+{% block content %}
+<section class="container-x max-w-3xl py-12">
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <div>
+      <span class="eyebrow">Área de cliente</span>
+      <h1 class="mt-3 text-3xl font-bold">As minhas faturas</h1>
+    </div>
+    <a href="{% url 'portal:dashboard' %}" class="btn-ghost h-10 px-3">Voltar</a>
+  </div>
+
+  <div class="card mt-8 divide-y divide-border">
+    {% for f in faturas %}
+      <div class="flex items-center justify-between gap-4 p-4">
+        <div>
+          <p class="font-medium">{{ f.numero|default:'Fatura' }}</p>
+          <p class="text-sm text-muted-foreground">
+            {{ f.data|date:'d/m/Y'|default:'—' }}{% if f.total != None %} · {{ f.total }} {{ f.moeda }}{% endif %}
+          </p>
+        </div>
+        {% if f.tem_ficheiro %}
+          <a href="{% url 'portal:fatura_pdf' f.pk %}" class="btn-cta h-10 px-4">Descarregar PDF</a>
+        {% else %}
+          <span class="text-sm text-muted-foreground">Sem PDF</span>
+        {% endif %}
+      </div>
+    {% empty %}
+      <p class="p-6 text-sm text-muted-foreground">
+        Ainda não há faturas disponíveis. Assim que a oficina emitir uma fatura em teu
+        nome, aparece aqui automaticamente para descarregares.
+      </p>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

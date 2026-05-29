@@ -103,6 +103,7 @@ class Command(BaseCommand):
         self._orcamentos(viaturas, tipos, funcionarios, pecas)
         self._marcacoes(viaturas, tipos, funcionarios)
         self._ordens(viaturas, tipos, funcionarios, pecas)
+        self._faturas_demo()
 
         self.stdout.write(self.style.SUCCESS('\n✓ Demo data criada com sucesso.'))
         self.stdout.write('  Funcionários (admin): joao@fulltorque.pt / maria@fulltorque.pt / pedro@fulltorque.pt — password: demo12345')
@@ -114,6 +115,9 @@ class Command(BaseCommand):
         self.stdout.write('A apagar dados operacionais...')
         # Ordem: filhos antes de pais (FKs PROTECT). queryset.delete() ignora o
         # guard append-only do RegistoServico — aceitável num comando de seed.
+        from faturacao.models import EstadoFaturacao, Fatura
+        Fatura.objects.all().delete()
+        EstadoFaturacao.objects.all().delete()
         FotoOrdem.objects.all().delete()
         OrdemTrabalho.objects.all().delete()   # cascata: sessões + itens
         PecaServico.objects.all().delete()
@@ -426,6 +430,12 @@ class Command(BaseCommand):
             Image.new('RGB', (320, 240), cor).save(buf, 'JPEG', quality=70)
             foto = FotoOrdem(ordem=ordem, categoria=categoria, funcionario=func, legenda=legenda)
             foto.imagem.save(f'demo_{categoria}.jpg', ContentFile(buf.getvalue()), save=True)
+
+    def _faturas_demo(self):
+        """Puxa faturas de exemplo via provedor 'demo' (exercita o cruzamento por NIF)."""
+        from faturacao.ingestao import puxar
+        criadas, _ = puxar(provedor='demo')
+        self.stdout.write(f'  {criadas} faturas demo (provedor demo).')
 
     # ----------------------------------------------------------------- helpers
     @staticmethod

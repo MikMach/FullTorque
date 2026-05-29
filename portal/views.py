@@ -1,8 +1,10 @@
 """Portal do cliente: registo, dashboard e ficha de viatura (login obrigatório)."""
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
+from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 
+from faturacao.models import Fatura
 from oficina.models import OrdemTrabalho, Viatura
 
 from .forms import RegistoClienteForm
@@ -67,3 +69,28 @@ def viatura_detail(request, pk):
         'fotos_ordem': list(ordem.fotos.all()) if ordem else [],
         'extras_ordem': list(ordem.itens.filter(fora_orcamento=True)) if ordem else [],
     })
+
+
+@login_required
+def faturas(request):
+    cliente = _cliente(request)
+    if cliente is None:
+        return render(request, 'portal/sem_perfil.html')
+    return render(request, 'portal/faturas.html', {
+        'cliente': cliente, 'faturas': cliente.faturas.all()})
+
+
+@login_required
+def fatura_pdf(request, pk):
+    """Descarrega o PDF — só o dono da fatura lhe pode aceder."""
+    cliente = _cliente(request)
+    if cliente is None:
+        raise Http404
+    fatura = get_object_or_404(Fatura, pk=pk, cliente=cliente)
+    if fatura.pdf:
+        return FileResponse(
+            fatura.pdf.open('rb'), as_attachment=True,
+            filename=f'fatura-{fatura.pk}.pdf', content_type='application/pdf')
+    if fatura.pdf_url:
+        return redirect(fatura.pdf_url)
+    raise Http404
