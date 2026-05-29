@@ -380,8 +380,11 @@ class Command(BaseCommand):
         self.stdout.write(f'  {n} marcações futuras.')
 
     def _ordens(self, viaturas, tipos, funcionarios, pecas):
+        # Garante uma ordem ATIVA numa viatura do cliente demo (para o portal mostrar "em serviço").
+        demo = Viatura.objects.filter(cliente__user__email='cliente@fulltorque.pt').first()
+        escolhidas = ([demo] if demo else []) + [v for v in random.sample(viaturas, min(4, len(viaturas))) if v != demo]
         n = 0
-        for i, viatura in enumerate(random.sample(viaturas, min(4, len(viaturas)))):
+        for i, viatura in enumerate(escolhidas):
             func = random.choice(funcionarios)
             ordem = OrdemTrabalho.objects.create(
                 viatura=viatura, local=viatura.local, funcionario=func,
@@ -406,8 +409,23 @@ class Command(BaseCommand):
                     ordem=ordem, tipo=ItemOrdem.Tipo.PECA, peca=peca, descricao=peca.nome,
                     quantidade=Decimal(random.randint(1, 2)), preco_unitario=peca.preco_venda,
                     fora_orcamento=True, nota='Imprevisto detetado durante o trabalho.')
+            if i == 0:
+                self._fotos_demo(ordem, func)
             n += 1
         self.stdout.write(f'  {n} ordens de trabalho (tempo + extras).')
+
+    def _fotos_demo(self, ordem, func):
+        import io
+        from PIL import Image
+        from django.core.files.base import ContentFile
+        for categoria, cor, legenda in [
+            ('entrada', (90, 95, 105), 'Estado à entrada'),
+            ('imprevisto', (190, 45, 45), 'Pastilhas gastas (imprevisto)'),
+        ]:
+            buf = io.BytesIO()
+            Image.new('RGB', (320, 240), cor).save(buf, 'JPEG', quality=70)
+            foto = FotoOrdem(ordem=ordem, categoria=categoria, funcionario=func, legenda=legenda)
+            foto.imagem.save(f'demo_{categoria}.jpg', ContentFile(buf.getvalue()), save=True)
 
     # ----------------------------------------------------------------- helpers
     @staticmethod

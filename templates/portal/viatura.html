@@ -20,6 +20,43 @@
     <div class="card p-5"><p class="text-sm text-muted-foreground">Serviços</p><p class="mt-1 text-xl font-semibold">{{ registos|length }}</p></div>
   </div>
 
+  {% if ordem_ativa %}
+    <div class="mt-6 rounded-2xl border-2 border-primary/30 bg-accent/40 p-6">
+      <h2 class="flex items-center gap-2 text-lg font-semibold text-primary">
+        <span class="relative flex h-2.5 w-2.5">
+          <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60"></span>
+          <span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-primary"></span>
+        </span>
+        O teu carro está em serviço
+      </h2>
+      <p class="mt-1 text-sm text-muted-foreground">{{ ordem_ativa.get_estado_display }} · iniciado a {{ ordem_ativa.criado_em|date:'d/m/Y' }}</p>
+
+      {% if fotos_ordem %}
+        <p class="mt-4 text-sm font-medium">Fotos do trabalho</p>
+        <div class="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
+          {% for f in fotos_ordem %}{% if f.imagem %}
+            <div class="relative">
+              <img src="{{ f.imagem.url }}" class="aspect-square w-full rounded-lg object-cover" alt="{{ f.get_categoria_display }}" />
+              <span class="absolute left-1 top-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white">{{ f.get_categoria_display }}</span>
+            </div>
+          {% endif %}{% endfor %}
+        </div>
+      {% endif %}
+
+      {% if extras_ordem %}
+        <p class="mt-4 text-sm font-medium">Trabalho extra detetado</p>
+        <ul class="mt-1 divide-y divide-border text-sm">
+          {% for it in extras_ordem %}
+            <li class="flex items-center justify-between gap-3 py-2">
+              <span>{{ it.descricao }}{% if it.nota %} <span class="text-muted-foreground">— {{ it.nota }}</span>{% endif %}</span>
+              <span class="shrink-0 font-medium">{{ it.subtotal|floatformat:2 }}€</span>
+            </li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    </div>
+  {% endif %}
+
   {% if proximas %}
     <h2 class="mt-10 text-lg font-semibold">Próximas revisões</h2>
     <div class="card mt-4 divide-y divide-border">

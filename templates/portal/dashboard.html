@@ -32,6 +32,26 @@
     </div>
   {% endif %}
 
+  {% if ordens_ativas %}
+    <div class="mt-8 rounded-2xl border-2 border-primary/30 bg-accent/40 p-6">
+      <h2 class="flex items-center gap-2 font-semibold text-primary">
+        <span class="relative flex h-2.5 w-2.5">
+          <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60"></span>
+          <span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-primary"></span>
+        </span>
+        Em serviço agora
+      </h2>
+      <div class="mt-3 grid gap-3 sm:grid-cols-2">
+        {% for o in ordens_ativas %}
+          <a href="{% url 'portal:viatura' o.viatura.pk %}" class="card flex items-center justify-between p-4 transition hover:border-primary/40">
+            <span><span class="font-mono font-semibold">{{ o.viatura.matricula }}</span> · {{ o.viatura.marca }} {{ o.viatura.modelo.nome }}</span>
+            <span class="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">{{ o.get_estado_display }}</span>
+          </a>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+
   <h2 class="mt-10 text-lg font-semibold">As minhas viaturas</h2>
   <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
     {% for v in viaturas %}

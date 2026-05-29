@@ -3,9 +3,11 @@ from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 
-from oficina.models import Viatura
+from oficina.models import OrdemTrabalho, Viatura
 
 from .forms import RegistoClienteForm
+
+ESTADOS_FECHADOS = [OrdemTrabalho.Estado.CONCLUIDA, OrdemTrabalho.Estado.CANCELADA]
 
 
 def register(request):
@@ -34,6 +36,9 @@ def dashboard(request):
 
     viaturas = list(cliente.viaturas.select_related('marca', 'modelo').all())
     marcacoes = cliente.marcacoes.select_related('tipo_servico', 'local').order_by('data_hora')
+    ordens_ativas = (OrdemTrabalho.objects.filter(viatura__cliente=cliente)
+                     .exclude(estado__in=ESTADOS_FECHADOS)
+                     .select_related('viatura', 'viatura__marca', 'viatura__modelo'))
 
     lembretes = []
     for v in viaturas:
@@ -46,15 +51,19 @@ def dashboard(request):
 
     return render(request, 'portal/dashboard.html', {
         'cliente': cliente, 'viaturas': viaturas,
-        'marcacoes': marcacoes, 'lembretes': lembretes[:6]})
+        'marcacoes': marcacoes, 'lembretes': lembretes[:6], 'ordens_ativas': ordens_ativas})
 
 
 @login_required
 def viatura_detail(request, pk):
     viatura = get_object_or_404(Viatura, pk=pk, cliente=_cliente(request))
+    ordem = viatura.ordens.exclude(estado__in=ESTADOS_FECHADOS).order_by('-criado_em').first()
     return render(request, 'portal/viatura.html', {
         'viatura': viatura,
         'registos': viatura.registos.select_related('tipo_servico', 'funcionario').all(),
         'inspecoes': viatura.inspecoes.all(),
         'proximas': viatura.proximas_revisoes(),
+        'ordem_ativa': ordem,
+        'fotos_ordem': list(ordem.fotos.all()) if ordem else [],
+        'extras_ordem': list(ordem.itens.filter(fora_orcamento=True)) if ordem else [],
     })
