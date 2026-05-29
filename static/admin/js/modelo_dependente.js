@@ -2,47 +2,73 @@
  *
  * Ao escolher a Marca, a pesquisa (autocomplete) do campo Modelo passa a
  * devolver SÓ os modelos dessa marca. Funciona no formulário de Viatura e nos
- * inlines (várias viaturas no Cliente). Sem dependências: usa o jQuery/select2
- * que o admin já carrega. O backend filtra em ModeloAdmin.get_search_results.
+ * inlines (várias viaturas no Cliente). Backend: ModeloAdmin.get_search_results.
  *
- * NB: o admin coloca este ficheiro ANTES do jquery.init.js, por isso esperamos
- * pelo DOMContentLoaded (altura em que django.jQuery já existe) para ligar tudo.
+ * Lições aprendidas (porque versões anteriores falhavam):
+ *  1) o admin inclui este ficheiro ANTES do jquery.init.js -> esperar DOMContentLoaded;
+ *  2) os eventos do select2 NÃO borbulham até ao document -> ligar select2:opening
+ *     DIRETAMENTE em cada <select> de modelo;
+ *  3) no form principal, marca e modelo estão em linhas/divs SEPARADAS, por isso
+ *     a marca descobre-se pelo NOME do campo (viaturas-0-modelo -> viaturas-0-marca;
+ *     ou #id_marca no form principal), não andando pelo DOM à volta;
+ *  4) injetar a marca via $.ajaxPrefilter (altera o pedido antes de o URL ser montado).
  */
 (function () {
     function init() {
         if (typeof django === 'undefined' || !django.jQuery) { return; }
         var $ = django.jQuery;
 
-        function linha($el) {
-            // O "contentor" da mesma viatura (linha de inline ou formulário principal).
-            return $el.closest('.dynamic-viaturas, .inline-related, tr, .form-row, fieldset.module, form');
+        // Seletor da marca correspondente a um campo de modelo (e vice-versa),
+        // a partir do nome: inline "viaturas-0-modelo" <-> "viaturas-0-marca".
+        function irmaoSelector(name, de, para) {
+            var re = new RegExp('^(.*-)' + de + '$');
+            var m = (name || '').match(re);
+            if (m) { return 'select[name="' + m[1] + para + '"]'; }
+            return 'select[name="' + para + '"], #id_' + para;
         }
-        function marcaDe($modelo) {
-            var $marca = linha($modelo)
-                .find('select[name$="marca"], select[name="marca"], #id_marca').first();
-            return $marca.val() || '';
+        function valorMarcaDe($modelo) {
+            var sel = irmaoSelector($modelo.attr('name'), 'modelo', 'marca');
+            return $modelo.closest('form').find(sel).first().val() || '';
         }
 
         var marcaAtual = '';
 
-        // Quando um campo Modelo é aberto, fixa a marca da mesma linha.
-        $(document).on('select2:opening', 'select[name$="modelo"], #id_modelo', function () {
-            marcaAtual = marcaDe($(this));
+        function ligaModelos() {
+            $('select[name$="modelo"]').each(function () {
+                var $m = $(this), name = $m.attr('name') || '';
+                if ($m.data('mdepBound') || name.indexOf('__prefix__') !== -1) { return; }
+                $m.data('mdepBound', true);
+                $m.on('select2:opening', function () { marcaAtual = valorMarcaDe($m); });
+            });
+        }
+        ligaModelos();
+        $(document).on('formset:added', ligaModelos);  // novas linhas de inline
+
+        // Acrescenta a marca aos dados do pedido (o jQuery serializa `data` para
+        // o URL DEPOIS dos prefilters, por isso isto é fiável).
+        $.ajaxPrefilter(function (options) {
+            if (!marcaAtual || !options || typeof options.data !== 'string') { return; }
+            if ((options.url || '').indexOf('/autocomplete/') === -1) { return; }
+            if (options.data.indexOf('field_name=modelo') === -1) { return; }
+            if (options.data.indexOf('marca=') !== -1) { return; }
+            options.data += '&marca=' + encodeURIComponent(marcaAtual);
         });
 
-        // Acrescenta &marca=<id> ao pedido de autocomplete do campo Modelo.
-        $(document).ajaxSend(function (event, jqxhr, settings) {
-            if (marcaAtual && settings.url && settings.url.indexOf('field_name=modelo') !== -1) {
-                settings.url += (settings.url.indexOf('?') !== -1 ? '&' : '?')
-                    + 'marca=' + encodeURIComponent(marcaAtual);
-            }
-        });
-
-        // Ao mudar a Marca, limpa o Modelo da mesma linha (evita pares trocados).
-        $(document).on('change', 'select[name$="marca"], #id_marca', function () {
-            var $modelo = linha($(this)).find('select[name$="modelo"], #id_modelo').first();
-            if ($modelo.length) { $modelo.val(null).trigger('change'); }
-        });
+        // Ao mudar a Marca, limpa o Modelo correspondente (evita pares trocados).
+        function ligaMarcas() {
+            $('select[name$="marca"]').each(function () {
+                var $marca = $(this), name = $marca.attr('name') || '';
+                if ($marca.data('mdepMarca') || name.indexOf('__prefix__') !== -1) { return; }
+                $marca.data('mdepMarca', true);
+                $marca.on('change', function () {
+                    var sel = irmaoSelector(name, 'marca', 'modelo');
+                    var $m = $marca.closest('form').find(sel).first();
+                    if ($m.length) { $m.val(null).trigger('change'); }
+                });
+            });
+        }
+        ligaMarcas();
+        $(document).on('formset:added', ligaMarcas);
     }
 
     if (document.readyState === 'loading') {
