@@ -1,0 +1,65 @@
+{% extends 'admin/base.html' %}
+{% load i18n %}
+
+{% block branding %}
+    {% include "unfold/helpers/site_branding.html" %}
+{% endblock %}
+
+{% block content %}
+    {% if kpis %}
+        <div class="flex flex-col gap-4 lg:flex-row mb-4">
+            {% for kpi in kpis %}
+                <div class="bg-white flex flex-col grow p-6 rounded-default shadow-xs border border-base-200 dark:bg-base-900 dark:border-base-800">
+                    <span class="material-symbols-outlined" style="font-size:26px;color:rgb(220 38 38)">{{ kpi.icon }}</span>
+                    <p class="font-semibold text-important" style="font-size:1.75rem;line-height:1.2;margin-top:.5rem">{{ kpi.value }}</p>
+                    <p class="text-sm text-base-500 dark:text-base-400">{{ kpi.label }}</p>
+                </div>
+            {% endfor %}
+        </div>
+
+        <div class="flex flex-col gap-4 lg:flex-row mb-8">
+            {# Lembretes: IPO a vencer #}
+            <div class="bg-white flex flex-col grow p-6 rounded-default shadow-xs border border-base-200 dark:bg-base-900 dark:border-base-800">
+                <div class="flex items-center mb-4">
+                    <span class="material-symbols-outlined mr-2" style="color:rgb(202 138 4)">event_available</span>
+                    <h2 class="font-semibold text-important">IPO a vencer (30 dias)</h2>
+                    {% if ipo_expirada_total %}
+                        <span class="ml-auto text-sm" style="color:rgb(220 38 38)">{{ ipo_expirada_total }} já expirada(s)</span>
+                    {% endif %}
+                </div>
+                {% for v in ipo_vencer %}
+                    <a href="{% url 'admin:oficina_viatura_change' v.pk %}" class="flex items-center justify-between py-2 text-sm border-b border-base-100 dark:border-base-800">
+                        <span class="text-important">{{ v.matricula }} · {{ v.marca|default:'' }} {{ v.modelo.nome|default:'' }}</span>
+                        <span class="text-base-500 dark:text-base-400">{{ v.inspecao_valida_ate|date:'d/m/Y' }}</span>
+                    </a>
+                {% empty %}
+                    <p class="text-sm text-base-500">Sem inspeções a vencer nos próximos 30 dias.</p>
+                {% endfor %}
+            </div>
+
+            {# Lembretes: orçamentos pendentes #}
+            <div class="bg-white flex flex-col grow p-6 rounded-default shadow-xs border border-base-200 dark:bg-base-900 dark:border-base-800">
+                <div class="flex items-center mb-4">
+                    <span class="material-symbols-outlined mr-2" style="color:rgb(220 38 38)">request_quote</span>
+                    <h2 class="font-semibold text-important">Orçamentos por aprovar</h2>
+                </div>
+                {% for o in orc_pendentes %}
+                    <a href="{% url 'admin:oficina_orcamento_change' o.pk %}" class="flex items-center justify-between py-2 text-sm border-b border-base-100 dark:border-base-800">
+                        <span class="text-important">#{{ o.pk }} · {{ o.viatura.matricula }} · {{ o.cliente.nome }}</span>
+                        <span class="text-base-500 dark:text-base-400">{{ o.total|floatformat:2 }} €</span>
+                    </a>
+                {% empty %}
+                    <p class="text-sm text-base-500">Sem orçamentos pendentes.</p>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+
+    <div class="flex flex-col lg:flex-row lg:gap-8">
+        <div class="grow">
+            {% include "unfold/helpers/app_list_default.html" %}
+        </div>
+
+        {% include "unfold/helpers/history.html" %}
+    </div>
+{% endblock %}

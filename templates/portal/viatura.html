@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}{{ viatura.matricula }} — Full Torque{% endblock %}
+
+{% block content %}
+<section class="container-x max-w-4xl py-12">
+  <a href="{% url 'portal:dashboard' %}" class="text-sm text-muted-foreground hover:text-foreground">← Voltar à minha área</a>
+
+  <div class="mt-4 flex flex-wrap items-center justify-between gap-4">
+    <div>
+      <h1 class="font-mono text-3xl font-bold">{{ viatura.matricula }}</h1>
+      <p class="mt-1 text-muted-foreground">{{ viatura.marca }} {{ viatura.modelo.nome }}{% if viatura.ano %} · {{ viatura.ano }}{% endif %}{% if viatura.get_combustivel_display %} · {{ viatura.get_combustivel_display }}{% endif %}</p>
+    </div>
+    <a href="{% url 'site_publico:marcar' %}" class="btn-cta h-10 px-4">Marcar serviço</a>
+  </div>
+
+  <div class="mt-6 grid gap-4 sm:grid-cols-3">
+    <div class="card p-5"><p class="text-sm text-muted-foreground">Quilometragem</p><p class="mt-1 text-xl font-semibold">{{ viatura.quilometragem_atual|default:'—' }} km</p></div>
+    <div class="card p-5"><p class="text-sm text-muted-foreground">IPO válida até</p><p class="mt-1 text-xl font-semibold">{{ viatura.inspecao_valida_ate|date:'d/m/Y'|default:'—' }}</p></div>
+    <div class="card p-5"><p class="text-sm text-muted-foreground">Serviços</p><p class="mt-1 text-xl font-semibold">{{ registos|length }}</p></div>
+  </div>
+
+  {% if proximas %}
+    <h2 class="mt-10 text-lg font-semibold">Próximas revisões</h2>
+    <div class="card mt-4 divide-y divide-border">
+      {% for p in proximas %}
+        <div class="flex items-center justify-between p-4 text-sm">
+          <span class="font-medium">{{ p.tipo_servico }}</span>
+          <span class="text-muted-foreground">{% if p.proxima_data %}{{ p.proxima_data|date:'d/m/Y' }}{% endif %}{% if p.proximo_km %} · {{ p.proximo_km }} km{% endif %}</span>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <h2 class="mt-10 text-lg font-semibold">Histórico de serviços</h2>
+  <p class="text-sm text-muted-foreground">Registo permanente — cada intervenção fica documentada (protege a tua garantia).</p>
+  <div class="card mt-4 divide-y divide-border">
+    {% for r in registos %}
+      <div class="flex items-start justify-between gap-4 p-4">
+        <div>
+          <p class="font-medium">{{ r.tipo_servico }}</p>
+          <p class="text-sm text-muted-foreground">{{ r.trabalho_feito }}</p>
+          <p class="mt-1 text-xs text-muted-foreground">{{ r.data_servico|date:'d/m/Y' }} · {{ r.quilometragem|default:'—' }} km{% if r.funcionario %} · {{ r.funcionario.nome }}{% endif %}</p>
+        </div>
+        <span class="shrink-0 rounded-full bg-accent px-2.5 py-1 text-xs font-medium text-cta">{{ r.get_estado_display }}</span>
+      </div>
+    {% empty %}
+      <p class="p-4 text-sm text-muted-foreground">Sem serviços registados.</p>
+    {% endfor %}
+  </div>
+
+  {% if inspecoes %}
+    <h2 class="mt-10 text-lg font-semibold">Inspeções</h2>
+    <div class="card mt-4 divide-y divide-border">
+      {% for i in inspecoes %}
+        <div class="flex items-center justify-between p-4 text-sm">
+          <span>{{ i.data|date:'d/m/Y' }} · {{ i.itens.count }} pontos verificados</span>
+          <span class="text-muted-foreground">{{ i.get_resultado_display }}</span>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

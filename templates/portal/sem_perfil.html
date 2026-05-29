@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block title %}Área de cliente — Full Torque{% endblock %}
+
+{% block content %}
+<section class="container-x max-w-md py-16 text-center">
+  <h1 class="text-2xl font-bold">Esta área é para clientes</h1>
+  <p class="mt-3 text-muted-foreground">A tua conta não tem perfil de cliente associado. Se és do staff, usa o painel de gestão.</p>
+  <div class="mt-6 flex justify-center gap-3">
+    <a href="/admin/" class="btn-primary h-11 px-5">Painel de gestão</a>
+    <form method="post" action="{% url 'portal:logout' %}">{% csrf_token %}<button type="submit" class="btn-outline h-11 px-5">Sair</button></form>
+  </div>
+</section>
+{% endblock %}

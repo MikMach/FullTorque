@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Entrar — Full Torque{% endblock %}
+
+{% block content %}
+<section class="container-x max-w-md py-16">
+  <div class="card p-8">
+    <h1 class="text-2xl font-bold">Área de cliente</h1>
+    <p class="mt-2 text-sm text-muted-foreground">Entra para veres as tuas viaturas, o histórico e as marcações.</p>
+
+    <form method="post" class="mt-6 space-y-4">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.GET.next }}">
+      {% if form.non_field_errors %}
+        <div class="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">{{ form.non_field_errors }}</div>
+      {% endif %}
+      <div>
+        <label class="field-label" for="{{ form.username.id_for_label }}">Email</label>
+        {{ form.username }}
+      </div>
+      <div>
+        <label class="field-label" for="{{ form.password.id_for_label }}">Palavra-passe</label>
+        {{ form.password }}
+      </div>
+      <button type="submit" class="btn-cta h-11 w-full">Entrar</button>
+    </form>
+
+    <p class="mt-6 text-center text-sm text-muted-foreground">
+      Não tens conta? <a href="{% url 'portal:register' %}" class="font-medium text-primary hover:underline">Criar conta</a>
+    </p>
+  </div>
+</section>
+{% endblock %}

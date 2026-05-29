@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}Criar conta — Full Torque{% endblock %}
+
+{% block content %}
+<section class="container-x max-w-md py-16">
+  <div class="card p-8">
+    <h1 class="text-2xl font-bold">Criar conta</h1>
+    <p class="mt-2 text-sm text-muted-foreground">Acede ao histórico das tuas viaturas e marca online mais depressa.</p>
+
+    <form method="post" class="mt-6 space-y-4">
+      {% csrf_token %}
+      {% for field in form %}
+        <div>
+          <label class="field-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {{ field }}
+          {% if field.errors %}<p class="mt-1 text-sm text-destructive">{{ field.errors.0 }}</p>{% endif %}
+        </div>
+      {% endfor %}
+      <button type="submit" class="btn-cta h-11 w-full">Criar conta</button>
+    </form>
+
+    <p class="mt-6 text-center text-sm text-muted-foreground">
+      Já tens conta? <a href="{% url 'portal:login' %}" class="font-medium text-primary hover:underline">Entrar</a>
+    </p>
+  </div>
+</section>
+{% endblock %}
