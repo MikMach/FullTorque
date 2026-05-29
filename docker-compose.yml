@@ -1,0 +1,68 @@
+# Servidor LOCAL da oficina (LAN). Corre num mini-PC sempre ligado.
+# O tablet liga-se a http://<ip-do-servidor>/ pela rede local — funciona sem internet.
+# Quando há internet, o serviço "sync" envia para a cloud e puxa as marcações.
+#
+#   cp .env.example .env   # e preenche
+#   docker compose up -d --build
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: fulltorque
+      POSTGRES_USER: fulltorque
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-fulltorque}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fulltorque"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build: .
+    image: fulltorque:local
+    command: sh docker/start-web.sh
+    environment:
+      FT_ROLE: oficina
+      DJANGO_DEBUG: "False"
+      DJANGO_SSL_REDIRECT: "False"          # LAN em HTTP (sem TLS)
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?define no .env}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-*}
+      DATABASE_URL: postgres://fulltorque:${DB_PASSWORD:-fulltorque}@db:5432/fulltorque
+      SYNC_CLOUD_URL: ${SYNC_CLOUD_URL:-}
+      SYNC_API_KEY: ${SYNC_API_KEY:?define no .env}
+      SEED_DEMO: ${SEED_DEMO:-0}
+    volumes:
+      - media:/app/media
+      - static:/app/staticfiles
+    ports:
+      - "80:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  sync:
+    image: fulltorque:local
+    command: sh docker/start-sync.sh
+    environment:
+      FT_ROLE: oficina
+      DJANGO_DEBUG: "False"
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?define no .env}
+      DATABASE_URL: postgres://fulltorque:${DB_PASSWORD:-fulltorque}@db:5432/fulltorque
+      SYNC_CLOUD_URL: ${SYNC_CLOUD_URL:-}
+      SYNC_API_KEY: ${SYNC_API_KEY:?define no .env}
+      SYNC_INTERVALO: ${SYNC_INTERVALO:-120}
+    volumes:
+      - media:/app/media
+    depends_on:
+      - web
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  media:
+  static:
