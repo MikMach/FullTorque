@@ -10,6 +10,7 @@ Domínio (v2): catálogo Marca/Modelo, Peças + stock, Orçamentos (orçamento �
 → registo), Inspeções (check-list digital com fotos).
 """
 import calendar
+import uuid
 from decimal import Decimal
 
 from django.conf import settings
@@ -28,10 +29,34 @@ def adicionar_meses(data, meses):
     return data.replace(year=ano, month=mes, day=dia)
 
 
+class Sincronizavel(models.Model):
+    """Base dos modelos sincronizados entre a oficina (local) e a cloud.
+
+    `uuid` é o identificador estável entre instâncias; `atualizado_em` é a marca
+    de água usada pela sincronização.
+    """
+
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, db_index=True)
+    atualizado_em = models.DateTimeField(default=timezone.now, editable=False, db_index=True)
+
+    class Meta:
+        abstract = True
+
+    def save(self, *args, **kwargs):
+        # Marca de água para a sincronização: atualiza no save normal; é preservada
+        # quando o registo vem do sync (passar sincronizando=True).
+        if not kwargs.pop('sincronizando', False):
+            self.atualizado_em = timezone.now()
+            campos = kwargs.get('update_fields')
+            if campos is not None:
+                kwargs['update_fields'] = list(set(campos) | {'atualizado_em'})
+        super().save(*args, **kwargs)
+
+
 # ---------------------------------------------------------------------------
 # Catálogo de viaturas
 # ---------------------------------------------------------------------------
-class Marca(models.Model):
+class Marca(Sincronizavel):
     """Marca de viatura (VW, Renault, ...). Catálogo partilhado pela cadeia."""
 
     nome = models.CharField(max_length=60, unique=True)
@@ -47,7 +72,7 @@ class Marca(models.Model):
         return self.nome
 
 
-class Modelo(models.Model):
+class Modelo(Sincronizavel):
     """Modelo de uma marca (Golf, Clio, ...)."""
 
     marca = models.ForeignKey(Marca, on_delete=models.CASCADE, related_name='modelos')
@@ -69,7 +94,7 @@ class Modelo(models.Model):
 # ---------------------------------------------------------------------------
 # Locais, clientes, serviços
 # ---------------------------------------------------------------------------
-class Local(models.Model):
+class Local(Sincronizavel):
     """Uma oficina/sucursal. Tudo o que é operacional aponta para um Local."""
 
     nome = models.CharField(max_length=120)
@@ -94,7 +119,7 @@ class Local(models.Model):
         return self.nome
 
 
-class Cliente(models.Model):
+class Cliente(Sincronizavel):
     """Cliente da marca. Sem `local`: pode ser servido em qualquer oficina da cadeia."""
 
     user = models.OneToOneField(
@@ -117,7 +142,7 @@ class Cliente(models.Model):
         return self.nome
 
 
-class TipoServico(models.Model):
+class TipoServico(Sincronizavel):
     """Catálogo de serviços. Intervalos definem a recorrência (próximas revisões)."""
 
     nome = models.CharField(max_length=120)
@@ -147,7 +172,7 @@ class TipoServico(models.Model):
 # ---------------------------------------------------------------------------
 # Peças e stock
 # ---------------------------------------------------------------------------
-class Peca(models.Model):
+class Peca(Sincronizavel):
     """Peça de catálogo (referência + preço de venda)."""
 
     referencia = models.CharField('referência', max_length=60, unique=True)
@@ -164,7 +189,7 @@ class Peca(models.Model):
         return f'{self.referencia} — {self.nome}'
 
 
-class StockPeca(models.Model):
+class StockPeca(Sincronizavel):
     """Stock de uma peça num local."""
 
     peca = models.ForeignKey(Peca, on_delete=models.CASCADE, related_name='stocks')
@@ -191,7 +216,7 @@ class StockPeca(models.Model):
 # ---------------------------------------------------------------------------
 # Funcionários e viaturas
 # ---------------------------------------------------------------------------
-class Funcionario(models.Model):
+class Funcionario(Sincronizavel):
     """Funcionário de um Local. `user` opcional até existir o login do staff."""
 
     user = models.OneToOneField(
@@ -227,7 +252,7 @@ class Funcionario(models.Model):
         return bool(self.pin)
 
 
-class Viatura(models.Model):
+class Viatura(Sincronizavel):
     """Viatura de um cliente. Marca/Modelo do catálogo; `local` = oficina de registo.
 
     A quilometragem atual deriva-se do último RegistoServico (append-only).
@@ -308,7 +333,7 @@ class Viatura(models.Model):
 # ---------------------------------------------------------------------------
 # Registos de serviço (append-only) + peças usadas + fotos
 # ---------------------------------------------------------------------------
-class RegistoServico(models.Model):
+class RegistoServico(Sincronizavel):
     """Registo APPEND-ONLY de um serviço executado. Não se edita nem se apaga.
 
     Correção = NOVA entrada ligada à original via `registo_corrigido`.
@@ -366,7 +391,7 @@ class RegistoServico(models.Model):
         return sum((p.subtotal for p in self.pecas.all()), Decimal('0.00'))
 
 
-class PecaServico(models.Model):
+class PecaServico(Sincronizavel):
     """Peça usada num registo de serviço (linha de detalhe)."""
 
     registo = models.ForeignKey(RegistoServico, on_delete=models.PROTECT, related_name='pecas')
@@ -387,7 +412,7 @@ class PecaServico(models.Model):
         return (self.quantidade or 0) * (self.preco_unitario or 0)
 
 
-class FotoRegisto(models.Model):
+class FotoRegisto(Sincronizavel):
     """Foto associada a um registo de serviço (antes/depois, peças, etc.)."""
 
     registo = models.ForeignKey(RegistoServico, on_delete=models.PROTECT, related_name='fotos')
@@ -406,7 +431,7 @@ class FotoRegisto(models.Model):
 # ---------------------------------------------------------------------------
 # Inspeções (check-list digital — DVI)
 # ---------------------------------------------------------------------------
-class Inspecao(models.Model):
+class Inspecao(Sincronizavel):
     """Inspeção/check-list digital de uma viatura (pontos verificados + fotos)."""
 
     class Resultado(models.TextChoices):
@@ -433,7 +458,7 @@ class Inspecao(models.Model):
         return f'Inspeção {self.viatura.matricula} ({self.data})'
 
 
-class ItemInspecao(models.Model):
+class ItemInspecao(Sincronizavel):
     """Ponto verificado numa inspeção (ex.: travões, pneus, óleo)."""
 
     class Estado(models.TextChoices):
@@ -458,7 +483,7 @@ class ItemInspecao(models.Model):
 # ---------------------------------------------------------------------------
 # Orçamentos (orçamento → aprovação → registo de serviço)
 # ---------------------------------------------------------------------------
-class Orcamento(models.Model):
+class Orcamento(Sincronizavel):
     """Orçamento. Ao ser aprovado, gera um RegistoServico (ordem de trabalho)."""
 
     class Estado(models.TextChoices):
@@ -526,7 +551,7 @@ class Orcamento(models.Model):
         return registo
 
 
-class ItemOrcamento(models.Model):
+class ItemOrcamento(Sincronizavel):
     """Linha de um orçamento (mão de obra ou peça)."""
 
     class Tipo(models.TextChoices):
@@ -555,7 +580,7 @@ class ItemOrcamento(models.Model):
 # ---------------------------------------------------------------------------
 # Marcações
 # ---------------------------------------------------------------------------
-class Marcacao(models.Model):
+class Marcacao(Sincronizavel):
     """Marcação/agendamento. Sem fluxo público ainda — gerida no admin pelo staff."""
 
     class Estado(models.TextChoices):
@@ -588,7 +613,7 @@ class Marcacao(models.Model):
 # ---------------------------------------------------------------------------
 # Ordens de trabalho (tablet do funcionário): trabalho ao vivo + tempo + extras + fotos
 # ---------------------------------------------------------------------------
-class OrdemTrabalho(models.Model):
+class OrdemTrabalho(Sincronizavel):
     """Trabalho ao vivo numa viatura (gerido pelo funcionário no tablet).
 
     Editável enquanto decorre; ao concluir gera um RegistoServico APPEND-ONLY
@@ -692,7 +717,7 @@ class OrdemTrabalho(models.Model):
         return registo
 
 
-class SessaoTrabalho(models.Model):
+class SessaoTrabalho(Sincronizavel):
     """Sessão de tempo de um funcionário numa ordem (o sistema soma as horas)."""
 
     ordem = models.ForeignKey(OrdemTrabalho, on_delete=models.CASCADE, related_name='sessoes')
@@ -713,7 +738,7 @@ class SessaoTrabalho(models.Model):
         return max(0, int(((self.fim or timezone.now()) - self.inicio).total_seconds()))
 
 
-class ItemOrdem(models.Model):
+class ItemOrdem(Sincronizavel):
     """Peça/mão de obra acrescentada numa ordem; `fora_orcamento` marca os imprevistos."""
 
     class Tipo(models.TextChoices):
@@ -743,7 +768,7 @@ class ItemOrdem(models.Model):
         return (self.quantidade or 0) * (self.preco_unitario or 0)
 
 
-class FotoOrdem(models.Model):
+class FotoOrdem(Sincronizavel):
     """Foto tirada no tablet durante a ordem (danos à entrada, imprevistos, etc.)."""
 
     class Categoria(models.TextChoices):

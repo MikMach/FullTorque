@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     'site_publico',  # site público anónimo
     'portal',        # área de cliente autenticada
     'tablet',        # tablet do funcionário (ordens de trabalho)
+    'sync',          # sincronização oficina (local) <-> cloud
 ]
 
 MIDDLEWARE = [
@@ -114,6 +115,13 @@ LOGOUT_REDIRECT_URL = 'site_publico:home'
 # Email — em dev imprime na consola; em produção trocar por SMTP.
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 DEFAULT_FROM_EMAIL = 'Full Torque <geral@fulltorque.pt>'
+
+# Papel do deployment: 'completo' (tudo, dev) | 'oficina' (local: tablet+admin) | 'cloud' (site+portal).
+FT_ROLE = os.environ.get('FT_ROLE', 'completo')
+
+# Sincronização oficina (local) <-> cloud
+SYNC_API_KEY = os.environ.get('SYNC_API_KEY', 'dev-sync-key')
+SYNC_CLOUD_URL = os.environ.get('SYNC_CLOUD_URL', '').rstrip('/')  # base URL da cloud (usado no servidor local)
 
 
 # Tema do admin (django-unfold) — branding e cores alinhadas com o site público.
